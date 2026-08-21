@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unicode &amp; Encoding Inspector // unicode-inspector.slippylabs.com</title>
+<meta name="description" content="Break text into codepoints, compare the four normalization forms, and find invisible characters and homoglyphs hiding in a string. Runs entirely in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://unicode-inspector.slippylabs.com/">
+<meta property="og:title" content="Unicode &amp; Encoding Inspector // unicode-inspector.slippylabs.com">
+<meta property="og:description" content="Break text into codepoints, compare the four normalization forms, and find invisible characters and homoglyphs hiding in a string. Runs entirely in your browser.">
+<meta property="og:image" content="https://unicode-inspector.slippylabs.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Unicode &amp; Encoding Inspector // unicode-inspector.slippylabs.com">
+<meta name="twitter:description" content="Break text into codepoints, compare the four normalization forms, and find invisible characters and homoglyphs hiding in a string. Runs entirely in your browser.">
+<meta name="twitter:image" content="https://unicode-inspector.slippylabs.com/og-image.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2234%22%20r%3D%2222%22%20fill%3D%22%231c8a52%22%20stroke%3D%22%2339ff8f%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2220%22%20cy%3D%2216%22%20r%3D%228%22%20fill%3D%22%231c8a52%22%20stroke%3D%22%2339ff8f%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2244%22%20cy%3D%2216%22%20r%3D%228%22%20fill%3D%22%231c8a52%22%20stroke%3D%22%2339ff8f%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E">
+<meta name="theme-color" content="#050b10">
+<link rel="stylesheet" href="style.css?v=1">
+<script>/* perf-lite: drop blend/blur effects on low-power devices. ?fx=lite or ?fx=full to override (persisted). */
+(function(){try{var k="slippy-fx",m=location.search.match(/[?&]fx=(lite|full)/),v=m?m[1]:localStorage.getItem(k);if(m)localStorage.setItem(k,v);if(v==="lite"||(v!=="full"&&(navigator.hardwareConcurrency||8)<=2))document.documentElement.classList.add("perf-lite");}catch(e){}})();</script>
+</head>
+<body>
+
+<div class="starfield"></div>
+<div class="scanlines"></div>
+
+<main class="page-wrap">
+  <div class="hud-panel wide">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="callsign-row">
+      <div class="toad-avatar-wrap">
+        <svg class="toad-avatar" width="46" height="46" viewBox="0 0 64 64">
+          <circle cx="32" cy="34" r="22" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="44" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="3.5" fill="#050b10"/>
+          <circle cx="44" cy="16" r="3.5" fill="#050b10"/>
+          <ellipse cx="24" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <ellipse cx="40" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <circle cx="24" cy="30" r="1.4" fill="#39ff8f"/>
+          <circle cx="40" cy="30" r="1.4" fill="#39ff8f"/>
+          <path d="M22 42 Q32 48 42 42" stroke="#050b10" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="lock-reticle"></div>
+      </div>
+      <span class="callsign">Workshop Division // Tool</span>
+      <div class="nav-links">
+        <a href="https://projects.slippylabs.com/" class="logout-link">← Archive</a>
+      </div>
+    </div>
+
+    <h1>UNICODE INSPECTOR</h1>
+    <p class="subtitle">Paste anything that is not behaving — a filename that will not match, a password that will not compare, a domain that looks right. This shows you every codepoint in it, and calls out the ones you cannot see.</p>
+
+    <div class="filter-bar" role="tablist" aria-label="Inspector mode">
+      <button class="hud-tab active" id="tab-scan" data-panel="panel-scan">Scan</button>
+      <button class="hud-tab" id="tab-chars" data-panel="panel-chars">Codepoints</button>
+      <button class="hud-tab" id="tab-normal" data-panel="panel-normal">Normalize</button>
+      <button class="hud-tab" id="tab-escape" data-panel="panel-escape">Escapes</button>
+    </div>
+
+    <div class="tool-field-row">
+      <label class="tool-field-label" for="text-input">Text</label>
+      <textarea class="tool-textarea" id="text-input" rows="4" spellcheck="false"
+                autocapitalize="off" autocomplete="off"></textarea>
+    </div>
+
+    <div class="tool-controls">
+      <button class="tool-btn" id="sample-btn">Load Sample</button>
+      <button class="tool-btn ghost" id="clear-btn">Clear</button>
+    </div>
+
+    <p class="tool-note" id="summary-note"></p>
+
+    <section id="panel-scan">
+      <div id="scan-findings"></div>
+      <div id="scan-clean" class="clean-box">
+        <div class="cert-section-label">Cleaned text</div>
+        <textarea class="tool-textarea" id="clean-output" rows="3" readonly></textarea>
+        <div class="tool-controls">
+          <button class="tool-btn" id="copy-clean-btn">Copy Cleaned</button>
+          <button class="tool-btn ghost" id="use-clean-btn">Use as Input</button>
+        </div>
+        <p class="tool-note" id="clean-note"></p>
+      </div>
+    </section>
+
+    <section id="panel-chars" class="hidden">
+      <div class="net-table-wrap"><table class="net-table" id="char-table"></table></div>
+      <p class="tool-note" id="char-truncated"></p>
+    </section>
+
+    <section id="panel-normal" class="hidden">
+      <p class="tool-note">
+        Normalization decides whether é is one codepoint or two, and whether ﬁ counts as
+        <code>fi</code>. NFC is what you almost always want to store. NFKC also folds
+        compatibility characters, which is what makes it useful for comparing user input — and
+        lossy for round-tripping it.
+      </p>
+      <div class="net-table-wrap"><table class="net-table" id="normal-table"></table></div>
+      <div id="normal-notes"></div>
+    </section>
+
+    <section id="panel-escape" class="hidden">
+      <div class="two-col esc-cols" id="escape-grid"></div>
+      <div class="tool-field-row">
+        <label class="tool-field-label" for="decode-input">Decode — paste any of the above forms</label>
+        <textarea class="tool-textarea" id="decode-input" rows="3" spellcheck="false"
+                  autocapitalize="off" autocomplete="off"></textarea>
+      </div>
+      <div class="tool-field-row">
+        <label class="tool-field-label" for="decode-output">Result</label>
+        <textarea class="tool-textarea" id="decode-output" rows="3" readonly></textarea>
+      </div>
+    </section>
+
+    <p class="tool-note">
+      Character names are carried for the ranges this tool exists to diagnose — Latin, Greek,
+      Cyrillic, Hebrew, Arabic, punctuation, fullwidth forms, variation selectors and the
+      mathematical alphabets. Outside those, the block, category and script are still exact;
+      they come from the browser's own Unicode tables rather than from a list shipped here.
+    </p>
+
+    <div class="comm-window">
+      <div class="comm-portrait">
+        <svg width="36" height="36" viewBox="0 0 64 64">
+          <circle cx="32" cy="34" r="22" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="44" cy="16" r="8" fill="#1c8a52" stroke="#39ff8f" stroke-width="2"/>
+          <circle cx="20" cy="16" r="3.5" fill="#050b10"/>
+          <circle cx="44" cy="16" r="3.5" fill="#050b10"/>
+          <ellipse cx="24" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <ellipse cx="40" cy="32" rx="4.5" ry="5.5" fill="#050b10"/>
+          <circle cx="24" cy="30" r="1.4" fill="#39ff8f"/>
+          <circle cx="40" cy="30" r="1.4" fill="#39ff8f"/>
+          <path d="M22 42 Q32 48 42 42" stroke="#050b10" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="comm-body">
+        <div class="comm-label"><span class="dot"></span> Incoming Transmission &mdash; Slippy</div>
+        <p>&quot;If two strings look identical and still fail to match, one of them has a character in it you have never seen.&quot;</p>
+      </div>
+    </div>
+
+    <a href="https://projects.slippylabs.com/" class="hud-btn">← Back to Archive</a>
+  </div>
+</main>
+
+<script src="unicode-data.js?v=1"></script>
+<script>
+/* ---- Unicode core -----------------------------------------------------------
+   Categories and scripts are asked of the JavaScript engine itself through
+   regular-expression property escapes, so they are exact and no table is
+   needed. Only the character names have to be carried, because there is no way
+   to ask for those; UNICODE_DATA (unicode-data.js) holds them front-coded.
+   verify_unicode.py diffs all of it against Python's unicodedata. */
+
+const GENERAL_CATEGORIES = [
+  ['Lu', 'Uppercase Letter'], ['Ll', 'Lowercase Letter'], ['Lt', 'Titlecase Letter'],
+  ['Lm', 'Modifier Letter'], ['Lo', 'Other Letter'],
+  ['Mn', 'Non-spacing Mark'], ['Mc', 'Spacing Mark'], ['Me', 'Enclosing Mark'],
+  ['Nd', 'Decimal Number'], ['Nl', 'Letter Number'], ['No', 'Other Number'],
+  ['Pc', 'Connector Punctuation'], ['Pd', 'Dash Punctuation'],
+  ['Ps', 'Open Punctuation'], ['Pe', 'Close Punctuation'],
+  ['Pi', 'Initial Quote'], ['Pf', 'Final Quote'], ['Po', 'Other Punctuation'],
+  ['Sm', 'Math Symbol'], ['Sc', 'Currency Symbol'], ['Sk', 'Modifier Symbol'],
+  ['So', 'Other Symbol'],
+  ['Zs', 'Space Separator'], ['Zl', 'Line Separator'], ['Zp', 'Paragraph Separator'],
+  ['Cc', 'Control'], ['Cf', 'Format'], ['Cs', 'Surrogate'], ['Co', 'Private Use'],
+];
+
+const SCRIPTS = [
+  'Latin', 'Greek', 'Cyrillic', 'Arabic', 'Hebrew', 'Han', 'Hiragana', 'Katakana',
+  'Hangul', 'Devanagari', 'Thai', 'Armenian', 'Georgian', 'Bengali', 'Tamil',
+  'Telugu', 'Cherokee', 'Ethiopic', 'Khmer', 'Lao', 'Myanmar', 'Sinhala',
+  'Syriac', 'Thaana', 'Tibetan', 'Mongolian', 'Coptic', 'Gothic', 'Runic',
+  'Braille', 'Common', 'Inherited',
+];
+
+const categoryTests = GENERAL_CATEGORIES.map(
+  ([code, label]) => [code, label, new RegExp('^\\p{General_Category=' + code + '}$', 'u')]);
+
+const scriptTests = SCRIPTS.map((name) => {
+  try {
+    return [name, new RegExp('^\\p{Script=' + name + '}$', 'u')];
+  } catch (err) {
+    return null;                            // engine does not know this script
+  }
+}).filter(Boolean);
+
+function categoryOf(char) {
+  for (const [code, label, test] of categoryTests) {
+    if (test.test(char)) return { code, label };
+  }
+  return { code: 'Cn', label: 'Unassigned' };
+}
+
+function scriptOf(char) {
+  for (const [name, test] of scriptTests) {
+    if (test.test(char)) return name;
+  }
+  return 'Unknown';
+}
+
+/* --- names --------------------------------------------------------------- */
+
+let nameCache = null;
+
+function buildNameCache() {
+  const map = new Map();
+  for (const [start, entries] of UNICODE_DATA.names) {
+    let previous = '';
+    entries.forEach((entry, offset) => {
+      if (entry === 0) { previous = ''; return; }
+      const name = previous.slice(0, entry[0]) + entry[1];
+      map.set(start + offset, name);
+      previous = name;
+    });
+  }
+  return map;
+}
+
+const HANGUL_INITIAL = ['G', 'GG', 'N', 'D', 'DD', 'R', 'M', 'B', 'BB', 'S', 'SS', '',
+                        'J', 'JJ', 'C', 'K', 'T', 'P', 'H'];
+const HANGUL_MEDIAL = ['A', 'AE', 'YA', 'YAE', 'EO', 'E', 'YEO', 'YE', 'O', 'WA', 'WAE',
+                       'OE', 'YO', 'U', 'WEO', 'WE', 'WI', 'YU', 'EU', 'YI', 'I'];
+const HANGUL_FINAL = ['', 'G', 'GG', 'GS', 'N', 'NJ', 'NH', 'D', 'L', 'LG', 'LM', 'LB',
+                      'LS', 'LT', 'LP', 'LH', 'M', 'B', 'BS', 'S', 'SS', 'NG', 'J', 'C',
+                      'K', 'T', 'P', 'H'];
+
+/* Several large ranges have names defined by a rule rather than a list, which
+   is why they can be answered without carrying any data for them. */
+function algorithmicName(cp) {
+  const hex = cp.toString(16).toUpperCase().padStart(4, '0');
+  if ((cp >= 0x3400 && cp <= 0x4DBF) || (cp >= 0x4E00 && cp <= 0x9FFF) ||
+      (cp >= 0x20000 && cp <= 0x2A6DF) || (cp >= 0x2A700 && cp <= 0x2EBEF) ||
+      (cp >= 0x30000 && cp <= 0x323AF)) {
+    return 'CJK UNIFIED IDEOGRAPH-' + hex;
+  }
+  if (cp >= 0xF900 && cp <= 0xFAFF) return 'CJK COMPATIBILITY IDEOGRAPH-' + hex;
+  if (cp >= 0xAC00 && cp <= 0xD7A3) {
+    const index = cp - 0xAC00;
+    const initial = Math.floor(index / 588);
+    const medial = Math.floor((index % 588) / 28);
+    const final = index % 28;
+    return 'HANGUL SYLLABLE ' + HANGUL_INITIAL[initial] + HANGUL_MEDIAL[medial] +
+           HANGUL_FINAL[final];
+  }
+  if (cp >= 0xD800 && cp <= 0xDFFF) return null;
+  if (cp >= 0xE000 && cp <= 0xF8FF) return null;
+  return null;
+}
+
+function nameOf(cp) {
+  if (!nameCache) nameCache = buildNameCache();
+  const listed = nameCache.get(cp);
+  if (listed) return listed;
+  return algorithmicName(cp);
+}
+
+function blockOf(cp) {
+  for (const [start, end, label] of UNICODE_DATA.blocks) {
+    if (cp >= start && cp <= end) return label;
+  }
+  return null;
+}
+
+/* --- encodings ------------------------------------------------------------ */
+
+function utf8Bytes(char) {
+  return Array.from(new TextEncoder().encode(char));
+}
+
+function utf16Units(char) {
+  const units = [];
+  for (let i = 0; i < char.length; i++) units.push(char.charCodeAt(i));
+  return units;
+}
+
+function hexPad(value, width) {
+  return value.toString(16).toUpperCase().padStart(width, '0');
+}
+
+function codepointLabel(cp) {
+  return 'U+' + hexPad(cp, cp > 0xFFFF ? 5 : 4);
+}
+
+/* Splits on codepoints, not on UTF-16 units, so an astral character stays one
+   entry instead of turning into a pair of lone surrogates. */
+function codepoints(text) {
+  const out = [];
+  for (const char of String(text)) {
+    out.push({ char, cp: char.codePointAt(0) });
+  }
+  return out;
+}
+
+function describe(entry) {
+  const { char, cp } = entry;
+  const category = categoryOf(char);
+  const invisible = UNICODE_DATA.invisible[hexPad(cp, 0)] || null;
+  const confusable = UNICODE_DATA.confusables[hexPad(cp, 0)] || null;
+  return {
+    char,
+    cp,
+    label: codepointLabel(cp),
+    name: nameOf(cp),
+    block: blockOf(cp),
+    category: category.code,
+    categoryLabel: category.label,
+    script: scriptOf(char),
+    utf8: utf8Bytes(char),
+    utf16: utf16Units(char),
+    invisible,
+    confusable,
+    isAscii: cp < 0x80,
+  };
+}
+
+/* --- the scan ------------------------------------------------------------- */
+
+function scanText(text) {
+  const entries = codepoints(text).map(describe);
+  const invisibles = [];
+  const confusables = [];
+  const scripts = new Map();
+  let hasCombining = false;
+
+  entries.forEach((entry, index) => {
+    if (entry.invisible) invisibles.push({ index, entry });
+    if (entry.confusable && !entry.isAscii) confusables.push({ index, entry });
+    if (entry.category === 'Mn' || entry.category === 'Mc' || entry.category === 'Me') {
+      hasCombining = true;
+    }
+    // Common and Inherited belong to no script in particular, so counting them
+    // would make every string look mixed.
+    if (entry.script !== 'Common' && entry.script !== 'Inherited' &&
+        entry.script !== 'Unknown') {
+      scripts.set(entry.script, (scripts.get(entry.script) || 0) + 1);
+    }
+  });
+
+  const findings = [];
+  if (invisibles.length) {
+    findings.push({
+      level: 'bad',
+      title: invisibles.length + ' invisible or format character' +
+             (invisibles.length === 1 ? '' : 's'),
+      detail: 'These take up no visible space, so the text looks shorter than it is.',
+      items: invisibles.map(({ index, entry }) =>
+        'position ' + index + ': ' + entry.label + ' — ' + entry.invisible),
+    });
+  }
+  if (confusables.length) {
+    findings.push({
+      level: 'bad',
+      title: confusables.length + ' character' + (confusables.length === 1 ? '' : 's') +
+             ' that look like ASCII but are not',
+      detail: 'A string with one of these in it will never compare equal to the ASCII ' +
+              'version, however identical the two look on screen.',
+      items: confusables.map(({ index, entry }) =>
+        'position ' + index + ': ' + entry.label + ' ' + (entry.name || '') +
+        ' looks like "' + entry.confusable + '"'),
+    });
+  }
+  if (scripts.size > 1) {
+    findings.push({
+      level: 'warn',
+      title: 'Mixed scripts — ' + Array.from(scripts.keys()).join(' + '),
+      detail: 'Text that mixes writing systems inside one word is the signature of a ' +
+              'spoofed name. Across separate words it is perfectly ordinary.',
+      items: Array.from(scripts.entries()).map(([name, count]) =>
+        name + ': ' + count + ' character' + (count === 1 ? '' : 's')),
+    });
+  }
+  const nfc = text.normalize('NFC');
+  if (nfc !== text) {
+    findings.push({
+      level: 'warn',
+      title: 'Not in NFC — the usual storage form',
+      detail: 'The same text written the other way is ' + codepoints(nfc).length +
+              ' codepoints instead of ' + entries.length +
+              '. Two systems that normalize differently will disagree about this string.',
+      items: [],
+    });
+  }
+  if (hasCombining && nfc === text) {
+    findings.push({
+      level: 'info',
+      title: 'Contains combining marks',
+      detail: 'Some characters here attach to the one before them, so the count of ' +
+              'codepoints is higher than the count of visible characters.',
+      items: [],
+    });
+  }
+  if (!findings.length && text) {
+    findings.push({
+      level: 'good',
+      title: 'Nothing hidden in this text',
+      detail: entries.length + ' codepoint' + (entries.length === 1 ? '' : 's') +
+              ', no invisibles, no look-alikes, single script, already in NFC.',
+      items: [],
+    });
+  }
+  return { entries, findings, invisibles, confusables };
+}
+
+/* Removes what is invisible and folds what is pretending to be ASCII. */
+function cleanText(text) {
+  let removed = 0, folded = 0;
+  let out = '';
+  for (const char of String(text)) {
+    const cp = char.codePointAt(0);
+    const key = hexPad(cp, 0);
+    if (UNICODE_DATA.invisible[key] && cp !== 0x09 && cp !== 0x0A && cp !== 0x0D) {
+      // A no-break space is invisible-ish but still a space; keep it as one.
+      if (cp === 0x00A0 || (cp >= 0x2000 && cp <= 0x200A) || cp === 0x202F ||
+          cp === 0x205F || cp === 0x3000) {
+        out += ' ';
+        folded++;
+        continue;
+      }
+      removed++;
+      continue;
+    }
+    const ascii = UNICODE_DATA.confusables[key];
+    if (ascii && cp >= 0x80) { out += ascii; folded++; continue; }
+    out += char;
+  }
+  return { text: out, removed, folded };
+}
+
+/* --- escapes -------------------------------------------------------------- */
+
+function escapeForms(text) {
+  const units = [];
+  for (let i = 0; i < text.length; i++) units.push(text.charCodeAt(i));
+
+  const jsEscape = Array.from(text).map((char) => {
+    const cp = char.codePointAt(0);
+    if (cp > 0xFFFF) return '\\u{' + hexPad(cp, 0) + '}';
+    if (cp < 0x20 || cp > 0x7E) return '\\u' + hexPad(cp, 4);
+    return char;
+  }).join('');
+
+  return [
+    ['JavaScript / JSON', jsEscape],
+    ['UTF-16 units', units.map((u) => '\\u' + hexPad(u, 4)).join('')],
+    ['UTF-8 bytes (hex)', Array.from(new TextEncoder().encode(text))
+      .map((b) => hexPad(b, 2)).join(' ')],
+    ['Percent-encoded (URI)', encodeURIComponent(text)],
+    ['HTML entities (numeric)', Array.from(text).map((char) => {
+      const cp = char.codePointAt(0);
+      return cp < 0x80 && cp > 0x20 ? char : '&#' + cp + ';';
+    }).join('')],
+    ['HTML entities (hex)', Array.from(text).map((char) => {
+      const cp = char.codePointAt(0);
+      return cp < 0x80 && cp > 0x20 ? char : '&#x' + hexPad(cp, 0) + ';';
+    }).join('')],
+    ['Codepoints', Array.from(text).map((char) => codepointLabel(char.codePointAt(0))).join(' ')],
+    ['Python', Array.from(text).map((char) => {
+      const cp = char.codePointAt(0);
+      if (cp > 0xFFFF) return '\\U' + hexPad(cp, 8);
+      if (cp < 0x20 || cp > 0x7E) return '\\u' + hexPad(cp, 4);
+      return char;
+    }).join('')],
+  ];
+}
+
+/* Accepts any of the forms above, mixed together, and turns them back. */
+function unescapeAny(text) {
+  let out = String(text);
+  out = out.replace(/\\u\{([0-9a-fA-F]+)\}/g, (m, hex) => String.fromCodePoint(parseInt(hex, 16)));
+  out = out.replace(/\\U([0-9a-fA-F]{8})/g, (m, hex) => String.fromCodePoint(parseInt(hex, 16)));
+  out = out.replace(/\\u([0-9a-fA-F]{4})/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
+  out = out.replace(/\\x([0-9a-fA-F]{2})/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
+  out = out.replace(/&#x([0-9a-fA-F]+);/g, (m, hex) => String.fromCodePoint(parseInt(hex, 16)));
+  out = out.replace(/&#(\d+);/g, (m, dec) => String.fromCodePoint(Number(dec)));
+  out = out.replace(/U\+([0-9a-fA-F]{4,6})/g, (m, hex) => String.fromCodePoint(parseInt(hex, 16)));
+  try {
+    out = decodeURIComponent(out);
+  } catch (err) { /* not percent-encoded, or only partly — leave it as it is */ }
+  // A run of *separated* hex byte pairs is a UTF-8 dump. The separator is not
+  // optional: "cafe" and "added" are made only of hex digits, and without it
+  // every such word would be eaten and decoded as bytes.
+  if (/^[0-9a-fA-F]{2}(\s+[0-9a-fA-F]{2})+$/.test(out.trim())) {
+    const bytes = out.trim().split(/\s+/).map((h) => parseInt(h, 16));
+    try {
+      out = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes));
+    } catch (err) { /* not valid UTF-8, so it was not a byte dump after all */ }
+  }
+  return out;
+}
+
+/* ==== UI ==== */
+
+const $ = (id) => document.getElementById(id);
+const MAX_ROWS = 400;
+
+function show(el, text) { el.textContent = text; el.style.display = text ? 'block' : 'none'; }
+
+/* An invisible character has to be shown as something. */
+function visibleChar(entry) {
+  if (entry.invisible) return '␣';
+  if (entry.category === 'Cc') return '␀';
+  if (entry.category === 'Mn' || entry.category === 'Mc' || entry.category === 'Me') {
+    return '◌' + entry.char;
+  }
+  return entry.char;
+}
+
+function renderScan(text) {
+  const box = $('scan-findings');
+  box.textContent = '';
+  if (!text) { $('scan-clean').style.display = 'none'; return; }
+
+  const result = scanText(text);
+  for (const finding of result.findings) {
+    const card = document.createElement('div');
+    card.className = 'finding ' + finding.level;
+    const title = document.createElement('div');
+    title.className = 'finding-title';
+    title.textContent = finding.title;
+    card.append(title);
+    const detail = document.createElement('p');
+    detail.className = 'finding-detail';
+    detail.textContent = finding.detail;
+    card.append(detail);
+    if (finding.items.length) {
+      const list = document.createElement('ul');
+      list.className = 'finding-list';
+      for (const item of finding.items.slice(0, 40)) {
+        const li = document.createElement('li');
+        li.textContent = item;
+        list.append(li);
+      }
+      if (finding.items.length > 40) {
+        const li = document.createElement('li');
+        li.textContent = '…and ' + (finding.items.length - 40) + ' more';
+        list.append(li);
+      }
+      card.append(list);
+    }
+    box.append(card);
+  }
+
+  const cleaned = cleanText(text);
+  const changed = cleaned.text !== text;
+  $('scan-clean').style.display = changed ? 'block' : 'none';
+  if (changed) {
+    $('clean-output').value = cleaned.text;
+    show($('clean-note'),
+         cleaned.removed + ' character' + (cleaned.removed === 1 ? '' : 's') + ' removed, ' +
+         cleaned.folded + ' folded to their ASCII equivalent.');
+  }
+}
+
+function renderChars(text) {
+  const table = $('char-table');
+  table.textContent = '';
+  if (!text) { show($('char-truncated'), ''); return; }
+  const entries = codepoints(text).map(describe);
+
+  const head = table.insertRow();
+  ['#', 'Char', 'Code', 'Name', 'Cat', 'Script', 'UTF-8', 'Block'].forEach((label) => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    head.append(th);
+  });
+
+  entries.slice(0, MAX_ROWS).forEach((entry, index) => {
+    const row = table.insertRow();
+    row.insertCell().textContent = String(index);
+    const glyph = row.insertCell();
+    glyph.textContent = visibleChar(entry);
+    glyph.className = 'glyph' + (entry.invisible ? ' flagged' : '');
+    row.insertCell().textContent = entry.label;
+    const nameCell = row.insertCell();
+    nameCell.textContent = entry.name || '—';
+    nameCell.title = entry.categoryLabel;
+    row.insertCell().textContent = entry.category;
+    row.insertCell().textContent = entry.script;
+    row.insertCell().textContent = entry.utf8.map((b) => hexPad(b, 2)).join(' ');
+    row.insertCell().textContent = entry.block || '—';
+  });
+
+  show($('char-truncated'), entries.length > MAX_ROWS
+    ? 'Showing the first ' + MAX_ROWS + ' of ' + entries.length + ' codepoints.' : '');
+}
+
+function renderNormal(text) {
+  const table = $('normal-table');
+  const notes = $('normal-notes');
+  table.textContent = '';
+  notes.textContent = '';
+  if (!text) return;
+
+  const head = table.insertRow();
+  ['Form', 'Codepoints', 'UTF-8 bytes', 'Same as input?', 'Text'].forEach((label) => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    head.append(th);
+  });
+
+  const forms = [['Input', text], ['NFC', text.normalize('NFC')],
+                 ['NFD', text.normalize('NFD')], ['NFKC', text.normalize('NFKC')],
+                 ['NFKD', text.normalize('NFKD')]];
+  for (const [label, value] of forms) {
+    const row = table.insertRow();
+    row.insertCell().textContent = label;
+    row.insertCell().textContent = String(codepoints(value).length);
+    row.insertCell().textContent = String(new TextEncoder().encode(value).length);
+    const sameCell = row.insertCell();
+    sameCell.textContent = label === 'Input' ? '—' : (value === text ? '✓ yes' : '✗ no');
+    if (label !== 'Input') sameCell.className = value === text ? 'yes' : 'no';
+    const textCell = row.insertCell();
+    textCell.textContent = value;
+    textCell.className = 'wrap';
+  }
+
+  if (text.normalize('NFKC') !== text.normalize('NFC')) {
+    const note = document.createElement('p');
+    note.className = 'tool-note';
+    note.textContent = 'NFKC differs from NFC here, which means this text contains ' +
+      'compatibility characters — ligatures, fullwidth forms, superscripts or the like. ' +
+      'That is exactly the difference an attacker uses, and exactly what a login form ' +
+      'should fold before comparing.';
+    notes.append(note);
+  }
+}
+
+function renderEscapes(text) {
+  const grid = $('escape-grid');
+  grid.textContent = '';
+  if (!text) return;
+  for (const [label, value] of escapeForms(text)) {
+    const box = document.createElement('div');
+    box.className = 'esc-box';
+    const head = document.createElement('div');
+    head.className = 'net-tile-label';
+    head.textContent = label;
+    const body = document.createElement('div');
+    body.className = 'esc-value';
+    body.textContent = value;
+    body.title = 'Click to copy';
+    body.addEventListener('click', () => {
+      navigator.clipboard.writeText(value).then(() => {
+        head.textContent = label + ' — copied';
+        setTimeout(() => { head.textContent = label; }, 1200);
+      }).catch(() => { /* clipboard refused; the text is selectable anyway */ });
+    });
+    box.append(head, body);
+    grid.append(box);
+  }
+}
+
+function render() {
+  const text = $('text-input').value;
+  const entries = codepoints(text);
+  show($('summary-note'), text
+    ? entries.length + ' codepoint' + (entries.length === 1 ? '' : 's') + ', ' +
+      text.length + ' UTF-16 unit' + (text.length === 1 ? '' : 's') + ', ' +
+      new TextEncoder().encode(text).length + ' bytes as UTF-8.'
+    : '');
+  renderScan(text);
+  renderChars(text);
+  renderNormal(text);
+  renderEscapes(text);
+}
+
+function switchTab(button) {
+  document.querySelectorAll('.hud-tab').forEach((t) => t.classList.remove('active'));
+  button.classList.add('active');
+  document.querySelectorAll('main section').forEach((s) => s.classList.add('hidden'));
+  $(button.dataset.panel).classList.remove('hidden');
+}
+
+document.querySelectorAll('.hud-tab').forEach((tab) => {
+  tab.addEventListener('click', () => switchTab(tab));
+});
+
+$('text-input').addEventListener('input', render);
+$('clear-btn').addEventListener('click', () => {
+  $('text-input').value = '';
+  render();
+  $('text-input').focus();
+});
+$('copy-clean-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText($('clean-output').value).then(() => {
+    $('copy-clean-btn').textContent = 'Copied';
+    setTimeout(() => { $('copy-clean-btn').textContent = 'Copy Cleaned'; }, 1200);
+  }).catch(() => { $('clean-output').select(); });
+});
+$('use-clean-btn').addEventListener('click', () => {
+  $('text-input').value = $('clean-output').value;
+  render();
+});
+$('decode-input').addEventListener('input', () => {
+  $('decode-output').value = unescapeAny($('decode-input').value);
+});
+
+/* Deliberately nasty: a Cyrillic "а" in "pаypal", a zero-width space, a
+   no-break space, a soft hyphen, and an é written the two-codepoint way. */
+const SAMPLE = 'pаypal.com​ admin­istrator café ＩＤ';
+
+$('sample-btn').addEventListener('click', () => {
+  $('text-input').value = SAMPLE;
+  render();
+});
+
+$('text-input').value = SAMPLE;
+$('decode-input').value = '\\u0048\\u0065llo &#x1F438; %E2%9C%93';
+$('decode-output').value = unescapeAny($('decode-input').value);
+render();
+</script>
+</body>
+</html>
